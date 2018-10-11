@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 
 from skimage import filters
 
-print ('cv version', cv2.__version__)
+print ('OpenCV version', cv2.__version__)
 
 import tensorflow as tf
 import tflearn
