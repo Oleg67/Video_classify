@@ -1,6 +1,4 @@
 import cv2
-import skvideo
-import math
 import os
 import imageio
 import numpy as np
@@ -13,7 +11,7 @@ from skimage import filters
 print ('OpenCV version', cv2.__version__)
 
 import tensorflow as tf
-import tflearn
+
 print ('tf version', tf.__version__)
 
 class Video_Preprocessing(object):
@@ -241,7 +239,7 @@ class Video_Preprocessing(object):
         if os.path.isfile(video_folder):
             video_list = [os.path.join(os.getcwd(), video_folder)]
         elif os.path.isdir(video_folder):
-            video_list = map(lambda x: os.path.join(os.getcwd(), video_folder, x), os.listdir(video_folder))
+            video_list = list(map(lambda x: os.path.join(os.getcwd(), video_folder, x), os.listdir(video_folder)))
         else:
             print (video_folder, 'no folder nor file')
             return
@@ -270,8 +268,8 @@ class Video_Preprocessing(object):
             print ('get the video folders')
             return
         else:
-            video_folders_list = sorted(map(lambda x: os.path.join(os.getcwd(), video_folders, x), 
-                                     os.listdir(video_folders)))
+            video_folders_list = sorted(list(map(lambda x: os.path.join(os.getcwd(), video_folders, x), 
+                                     os.listdir(video_folders))))
         
         _folders_names = []
         for i, video_folder in enumerate(video_folders_list):
@@ -346,9 +344,9 @@ class Images_Preprocessing(Video_Preprocessing):
             folder = os.path.dirname(self.folders[0])
         
         list_images = sorted(self.get_list_of_images_path(folder))
-        _list_images = map(lambda x: x.split('/'), list_images)
+        _list_images = list(map(lambda x: x.split('/'), list_images))
         
-        mask = np.array(map(lambda x: not ('train' in x ) or ('test' in x), _list_images))
+        mask = np.array(list(map(lambda x: not ('train' in x ) or ('test' in x), _list_images)))
         list_images = np.array(list_images)[mask]
         y = np.vectorize(lambda x: x.split('/')[-3])(list_images)
     
@@ -370,7 +368,7 @@ class Images_Preprocessing(Video_Preprocessing):
     
         if not self.all_dir(folder):
         # add to the list only files not dir
-            return sorted(map(lambda x: os.path.join(folder, x), os.listdir(folder)))
+            return sorted(list(map(lambda x: os.path.join(folder, x), os.listdir(folder))))
     
         for fd in os.listdir(folder):
             path = os.path.join(os.getcwd(), folder, fd)
@@ -421,13 +419,13 @@ class Images_to_sequence(Video_Preprocessing):
             
             if len(set(map(os.path.dirname, self.folders))) !=1:
                 raise OSError('the folders of classes are not in the same folder')
-            if len(map(os.path.split, self.folders)) == 1:
+            if len(list(map(os.path.split, self.folders))) == 1:
                 _dif = self.folders[0]
-                _dir_list = map(lambda x: os.path.join(_dir, x), os.listdir(_dir))
-                mask = map(os.path.isdir, _dir_list)
+                _dir_list = list(map(lambda x: os.path.join(_dir, x), os.listdir(_dir)))
+                mask = list(map(os.path.isdir, _dir_list))
                 _dir_list = np.array(_dir_list)[mask]
                 _dir_list = _dir_list[(_dir_list != 'train') & (_dir_list != 'test')]
-                self.folders = map(lambda x: os.path.join(_dir, x), _dir_list)
+                self.folders = list(map(lambda x: os.path.join(_dir, x), _dir_list))
                 return
         pass
                 
@@ -444,6 +442,7 @@ class Images_to_sequence(Video_Preprocessing):
             print ('need the folder with images')
             return
         f_lists = {}
+        
         for f in self.folders:
             f_lists[f] = self.get_list_sequence_images(f) # make the dictionary of images' lists
             
@@ -460,10 +459,12 @@ class Images_to_sequence(Video_Preprocessing):
         #print 'do get_list_sequence_images'
         images_list = np.vectorize(lambda x: os.path.join(os.getcwd(), path, x))(np.sort(os.listdir(path)))
         files_list = np.array([])
+        
         for _folder in images_list:
             #print _folder
             files_list = self.create_list_of_images(_folder, files_list)
             #print files_list.shape
+            
         return files_list.reshape(len(files_list)//self.max_sequence, self.max_sequence)
     
     def add_list_length(self, f_list, max_length):
@@ -481,6 +482,7 @@ class Images_to_sequence(Video_Preprocessing):
             return np.append(f_list[:n], self.add_list_length(f_list[n:], max_length))
         f_temp = np.random.choice(f_list, size=add_length)
         #print type(f_temp)
+        
         return np.sort(np.append(f_list, f_temp))
 
 
@@ -492,12 +494,14 @@ class Images_to_sequence(Video_Preprocessing):
         mask = np.arange(len(f_list)) % period == 0
         f_temp = np.array(f_list)[mask]
         f_temp = self.add_list_length(f_temp, max_length)
+        
         for j in range(1, period):
             mask[-1] = False
             mask = np.roll(mask, 1) # shift the period' mask to one step
             f_temp2 = np.array(f_list)[mask]
             f_temp2 = self.add_list_length(f_temp2, max_length)
             f_temp = np.append(f_temp, f_temp2)
+            
         return f_temp
      
             
@@ -508,12 +512,15 @@ class Images_to_sequence(Video_Preprocessing):
         return list of images as sequence in  a list of paths
         """
         #print 'DO create_list_of_images'
+        #print('folder', folder)
         f_list = sorted(os.listdir(folder))
-        f_list = map(lambda x: os.path.join(os.getcwd(), folder, x), f_list) # the full names of files
+        #print(f_list)
+        f_list = list(map(lambda x: os.path.join(os.getcwd(), folder, x), f_list)) # the full names of files
         f_list = np.array(f_list)
         #print f_lists
         
-        #print f_list.shape
+        #print ('shape', f_list.shape)
+        #print (len(f_list))
         
         ind_mask = (np.arange(len(f_list)) % self.period_sequence == 0) # mask for images with the period
         
@@ -531,8 +538,9 @@ class Images_to_sequence(Video_Preprocessing):
         # if the number of images in the folder  more then max length
         # images from folder are taken to create the image's sequence with the max length by shift the mask 
         f_list = np.array(f_list)[ind_mask]
-        print f_list
+        #print f_list
         f_lists = np.append(f_lists, self.lists_by_period(f_list, period, self.max_sequence))
+        
         return f_lists
         
         

@@ -1,9 +1,8 @@
 import cv2
-import skvideo
-import math
 import os
 import imageio
 import numpy as np
+import pandas as pd
 
 import shutil
 from sklearn.model_selection import train_test_split
@@ -12,7 +11,6 @@ from skimage import filters
 from video_utilits import Images_to_sequence, Video_Preprocessing
 
 import tensorflow as tf
-import tflearn
 
 
 print ('openCV version',cv2.__version__)
@@ -33,6 +31,7 @@ class Video_Prediction(Images_to_sequence):
         self.cnn_Model = cnn_Model
         self.rnn_Model = rnn_Model
         self.period = period
+        assert cnn_Model.output_shape[-1] == rnn_Model.input_shape[-1], 'output of the cnn_Model is the input of the rnn_Model, and sizes has to the same'
         
         self.max_length = rnn_Model.input_shape[1] # max length of the image's sequence
         self.max_sequence = self.max_length # max length of the image's sequence
@@ -52,12 +51,17 @@ class Video_Prediction(Images_to_sequence):
         """
         if os.path.exists('prediction'):
             shutil.rmtree('prediction') # del the folder if one exists
-        
+            
+        assert os.path.isfile(video_file), 'video_file must be a name of video'
+         
         self.video_to_image_folders(video_file, 'prediction', 1) # preprocessing of video file to image's foldes
         self.create_dict_images_lists(['prediction']) # images to sequence 
         X = self.store_images_features()
         
-        return self.rnn_Model.predict_on_batch(X)
+        pred = self.rnn_Model.predict_on_batch(X)
+        df = pd.DataFrame(data=pred, columns=['bad'])
+        df['good'] = 1-pred
+        return df
     
     def store_images_features(self):
         """
@@ -84,9 +88,33 @@ if __name__ == '__main__':
     print ('cnn input', cnn_Model.input_shape, 'cnn output', cnn_Model.output_shape)
     print ('rnn input', rnn_model.input_shape, 'rnn output', rnn_model.output_shape)
     print
-    print 'enter the video file name'
+    print ('enter the video file name')
     
-    name_video = input()
+    name_video = str(input())
     
     cv = Video_Prediction(cnn_Model, rnn_model, period=5)
-    cv.predict(name_video)
+    pred = cv.predict(name_video)
+    
+    
+    video = cv2.VideoCapture(name_video)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    i = 0 
+    while video.isOpened():
+        success, img = video.read()
+        bad = pred.loc[i//(5*20), 'bad']
+        good = pred.loc[i//(5*20), 'good']
+        text = 'Bad %4.3f  Good %4.3f' %(bad, good)
+        if bad < good:
+            color = (0,255,0)
+        else:
+            color = (0,0,255)
+        i +=1
+      
+        cv2.putText(img, text, (10,100), font, 2, color, 2, cv2.LINE_AA)    
+        cv2.imshow('img',img)
+        k = cv2.waitKey(10) & 0xff
+        if k == 27:
+            break
+        
+        video.release()
+        cv2.destroyAllWindows()
